@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Shipments{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pagination {
+        margin-top: 24px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .pagination-info { color: var(--muted); }
+    .pagination-buttons { display: flex; gap: 10px; }
+    .btn.disabled { opacity: 0.5; pointer-events: none; }
+
+    .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
+    .empty-state .btn { margin-top: 16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Shipment register</div>
+            <h1 class="page-title">All shipments</h1>
+            <p class="page-desc">Labels created here and tracking numbers supplied by vendors.</p>
+        </div>
+
+        <a href="{% url 'register_tracking' %}" class="btn btn-outline">
+            <svg class="icon"><use href="#i-link"/></svg>
+            Register vendor AWB
+        </a>
+    </div>
+
+    {% if shipments %}
+
+        <div class="table-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Shipment</th>
+                        <th>Purpose / client</th>
+                        <th>Communication</th>
+                        <th>Carrier</th>
+                        <th>ETA</th>
+                        <th>Owner</th>
+                        <th></th>
+                    </tr>
+                </thead>
+
+                <tbody id="shipmentRows">
+                    {% for shipment in shipments %}
+                        {% include "partials/shipment_row.html" %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <span class="pagination-info">
+                {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ paginator.count }} shipment{{ paginator.count|pluralize }}
+            </span>
+
+            <div class="pagination-buttons">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline">Previous</a>
+                {% else %}
+                    <span class="btn btn-outline disabled">Previous</span>
+                {% endif %}
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline">Next</a>
+                {% else %}
+                    <span class="btn btn-outline disabled">Next</span>
+                {% endif %}
+            </div>
+        </div>
+
+    {% else %}
+
+        <div class="table-card empty-state">
+            <p>No shipments registered yet.</p>
+            <a href="{% url 'register_tracking' %}" class="btn btn-primary">
+                <svg class="icon"><use href="#i-plus"/></svg>
+                Register your first AWB
+            </a>
+        </div>
+
+    {% endif %}
+
+{% endblock %}

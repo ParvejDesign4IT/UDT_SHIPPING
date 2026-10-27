@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Register tracking{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-wrap { max-width: 960px; margin: 0 auto; }
+
+    .back-link {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: none; border: none;
+        font: inherit; font-size: 17px; font-weight: 600;
+        color: var(--text);
+        cursor: pointer;
+        padding: 4px 0;
+        margin-bottom: 8px;
+    }
+
+    .back-link svg.icon { width: 18px; height: 18px; }
+
+    .form-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 30px;
+        margin-top: 30px;
+    }
+
+    .form-grid { display: grid; gap: 20px; }
+    .grid-carrier { grid-template-columns: 220px 1fr; }
+    .grid-two { grid-template-columns: 1fr 1fr; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+
+    .field label { display: block; font-size: 17px; font-weight: 800; margin-bottom: 10px; }
+
+    .field input,
+    .field select {
+        width: 100%;
+        padding: 12px 14px;
+        background: #f3f5f8;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font: inherit; font-size: 17px;
+        color: var(--text);
+    }
+
+    .field input:focus,
+    .field select:focus { outline: none; border-color: var(--primary); background: #fff; }
+
+    .field input[readonly] { color: var(--muted); cursor: default; }
+
+    .field-error { color: var(--red); font-size: 14px; font-weight: 600; margin-top: 6px; }
+
+    /* Live carrier status */
+    .live-preview {
+        margin-top: 16px;
+        padding: 14px 18px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #f8fafc;
+    }
+
+    .live-preview.success { background: var(--blue-bg); border-color: #c7d6ff; }
+    .live-preview.error   { background: var(--red-bg);  border-color: #f5c2c2; color: var(--red); }
+    .live-preview.loading { color: var(--muted); }
+    .live-status { font-weight: 800; font-size: 17px; }
+    .live-detail { color: var(--muted); margin-top: 4px; }
+
+    /* Customs notice */
+    .notice {
+        display: flex; gap: 14px;
+        margin-top: 30px;
+        padding: 16px 20px;
+        border-radius: 10px;
+        border: 1px solid;
+    }
+
+    .notice.held     { background: #fffbea; border-color: #f5e29a; }
+    .notice.released { background: var(--green-bg); border-color: #b5e6d6; }
+    .notice-title { font-size: 17px; font-weight: 700; }
+    .notice-text { color: var(--muted); margin-top: 4px; }
+
+    .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 30px; }
+
+    @media (max-width: 800px) {
+        .grid-carrier, .grid-two { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wrap">
+
+    <button type="button" class="back-link" id="backBtn">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back
+    </button>
+
+    <div class="eyebrow">Vendor shipment</div>
+    <h1 class="page-title">Register existing tracking</h1>
+    <p class="page-desc">Add a DHL or FedEx AWB supplied by a vendor. Indian export rules still hold client communication.</p>
+
+    <form method="POST" class="form-card" novalidate>
+        {% csrf_token %}
+
+        {% if errors.non_field_errors %}
+            <div class="alert alert-error">{{ errors.non_field_errors.0 }}</div>
+        {% endif %}
+
+        <div class="form-grid grid-carrier">
+            <div class="field">
+                <label for="carrier">Carrier</label>
+                <select id="carrier" name="carrier">
+                    {% for value, label in carrier_choices %}
+                        <option value="{{ value }}" {% if form_data.carrier == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.carrier %}<div class="field-error">{{ errors.carrier.0 }}</div>{% endif %}
+            </div>
+
+            <div class="field">
+                <label for="awb">Tracking number / AWB</label>
+                <input type="text" id="awb" name="awb" value="{{ form_data.awb|default:'' }}"
+                       placeholder="e.g. 612988347712" autocomplete="off">
+                {% if errors.awb %}<div class="field-error">{{ errors.awb.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div id="livePreview" class="live-preview" hidden></div>
+
+        <hr class="divider">
+
+        <div class="form-grid grid-two">
+            <div class="field">
+                <label for="purpose">Purpose</label>
+                <select id="purpose" name="purpose">
+                    {% for value, label in purpose_choices %}
+                        <option value="{{ value }}" {% if form_data.purpose == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.purpose %}<div class="field-error">{{ errors.purpose.0 }}</div>{% endif %}
+            </div>
+
+            <div class="field">
+                <label for="clientRef">Client reference</label>
+                <input type="text" id="clientRef" name="client_reference"
+                       value="{{ form_data.client_reference|default:'' }}" placeholder="e.g. Northstar / Sensor POC">
+                {% if errors.client_reference %}<div class="field-error">{{ errors.client_reference.0 }}</div>{% endif %}
+            </div>
+
+            <div class="field">
+                <label for="owner">Owner</label>
+                <input type="text" id="owner"
+                       value="{{ request.user.get_full_name|default:request.user.username }} · Mumbai" readonly>
+            </div>
+
+            <div class="field">
+                <label for="recipient">Pending client recipient</label>
+                <input type="email" id="recipient" name="recipient_email"
+                       value="{{ form_data.recipient_email|default:'' }}" placeholder="client@example.com">
+                {% if errors.recipient_email %}<div class="field-error">{{ errors.recipient_email.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="notice held" id="trackingNotice">
+            <svg class="icon"><use href="#i-lock" id="noticeIcon"/></svg>
+            <div>
+                <div class="notice-title" id="noticeTitle">Client tracking will be held</div>
+                <div class="notice-text" id="noticeText">
+                    The AWB is monitored internally now. No client email or link is released before clearance.
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-outline" id="cancelBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary">Start internal tracking</button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const shipmentsUrl = "{% url 'shipments' %}";
+
+    // ---------- Back and Cancel ----------
+    document.getElementById("backBtn").addEventListener("click", () => {
+        window.location.href = shipmentsUrl;
+    });
+
+    document.getElementById("cancelBtn").addEventListener("click", () => {
+        window.location.href = shipmentsUrl;
+    });
+
+    // ---------- Customs notice follows the purpose ----------
+    const purpose = document.getElementById("purpose");
+    const notice = document.getElementById("trackingNotice");
+    const noticeIcon = document.getElementById("noticeIcon");
+    const noticeTitle = document.getElementById("noticeTitle");
+    const noticeText = document.getElementById("noticeText");
+
+    function updateNotice() {
+        const isExport = purpose.value.endsWith("_export");
+
+        if (isExport) {
+            notice.className = "notice held";
+            noticeIcon.setAttribute("href", "#i-lock");
+            noticeTitle.textContent = "Client tracking will be held";
+            noticeText.textContent = "The AWB is monitored internally now. No client email or link is released before clearance.";
+        } else {
+            notice.className = "notice released";
+            noticeIcon.setAttribute("href", "#i-check");
+            noticeTitle.textContent = "Client tracking can be shared";
+            noticeText.textContent = "No export clearance applies. The client recipient will get tracking updates right away.";
+        }
+    }
+
+    purpose.addEventListener("change", updateNotice);
+    updateNotice();
+
+    // ---------- Live carrier lookup while typing the AWB ----------
+    const awbInput = document.getElementById("awb");
+    const carrierSelect = document.getElementById("carrier");
+    const livePreview = document.getElementById("livePreview");
+    const previewUrl = "{% url 'tracking_preview' %}";
+    let lookupTimer;
+
+    function showPreview(state, lines) {
+        livePreview.hidden = false;
+        livePreview.className = `live-preview ${state}`;
+        livePreview.replaceChildren(...lines.map(([cls, text]) => {
+            const div = document.createElement("div");
+            div.className = cls;
+            div.textContent = text;   // textContent keeps carrier data safe from HTML injection
+            return div;
+        }));
+    }
+
+    async function lookupStatus() {
+        const awb = awbInput.value.replace(/\s/g, "");
+
+        if (awb.length < 10) {
+            livePreview.hidden = true;
+            return;
+        }
+
+        showPreview("loading", [["", "Checking with carrier…"]]);
+
+        try {
+            const params = new URLSearchParams({ carrier: carrierSelect.value, awb });
+            const response = await fetch(`${previewUrl}?${params}`);
+            const data = await response.json();
+
+            if (!data.ok) {
+                showPreview("error", [["", data.error]]);
+                return;
+            }
+
+            const lines = [["live-status", `${data.status_label} — ${data.status_text}`]];
+            if (data.last_event) {
+                lines.push(["live-detail", `Last scan: ${data.last_event}${data.last_location ? " · " + data.last_location : ""}`]);
+            }
+            if (data.eta) {
+                lines.push(["live-detail", `Estimated delivery: ${data.eta}`]);
+            }
+            showPreview("success", lines);
+
+        } catch {
+            showPreview("error", [["", "Could not check the status right now."]]);
+        }
+    }
+
+    // Wait until typing pauses, to save API calls
+    awbInput.addEventListener("input", () => {
+        clearTimeout(lookupTimer);
+        lookupTimer = setTimeout(lookupStatus, 800);
+    });
+
+    carrierSelect.addEventListener("change", lookupStatus);
+
+    // If the form re-opened with an AWB after a validation error, check it again
+    if (awbInput.value) {
+        lookupStatus();
+    }
+</script>
+{% endblock %}

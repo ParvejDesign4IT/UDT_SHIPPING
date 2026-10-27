@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}{{ shipment.shipment_id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 26px;
+    }
+
+    .back-link {
+        display: inline-flex; align-items: center; gap: 8px;
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 700;
+        margin-bottom: 18px;
+    }
+
+    .back-link svg.icon { width: 18px; height: 18px; }
+
+    .detail-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .detail-title h1 { font-size: 30px; font-weight: 900; }
+    .detail-meta { color: var(--muted); margin-top: 8px; line-height: 1.6; }
+
+    .detail-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 22px; }
+    .action-buttons { display: flex; gap: 8px; }
+    .action-buttons form { margin: 0; }
+    .icon-btn { padding: 11px 13px; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .label-caps {
+        font-size: 13px; font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: #8a97a8;
+    }
+
+    .eta-block { text-align: right; }
+    .eta-block .value { font-weight: 700; margin-top: 4px; }
+    .eta-block .value.delayed { color: var(--red); }
+
+    /* Layout */
+    .detail-layout {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 20px;
+        align-items: start;
+    }
+
+    .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 24px 28px;
+    }
+
+    .side-stack { display: flex; flex-direction: column; gap: 20px; }
+    .panel-title { font-size: 18px; font-weight: 900; margin-bottom: 18px; }
+    .section-title { font-size: 16px; font-weight: 800; margin: 26px 0 16px; }
+
+    /* Tabs */
+    .detail-tabs { display: flex; gap: 6px; margin-bottom: 24px; }
+    .detail-tab { font-size: 16px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Timeline */
+    .timeline { list-style: none; }
+
+    .timeline-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 38px 1fr auto;
+        gap: 16px;
+        padding-bottom: 34px;
+    }
+
+    .timeline-item:not(:last-child)::before {
+        content: "";
+        position: absolute;
+        left: 18px; top: 42px; bottom: 6px;
+        width: 2px;
+        background: var(--border);
+    }
+
+    .event-icon {
+        width: 38px; height: 38px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        color: #fff;
+    }
+
+    .event-icon svg.icon { width: 18px; height: 18px; }
+    .event-icon.amber { background: #f59e0b; }
+    .event-icon.blue  { background: #3b82f6; }
+    .event-icon.teal  { background: #14b8a6; }
+    .event-icon.green { background: var(--green); }
+    .event-icon.red   { background: var(--red); }
+    .event-icon.gray  { background: #94a3b8; }
+
+    .event-title { font-size: 17px; font-weight: 800; padding-top: 6px; }
+    .event-desc { color: var(--muted); margin-top: 4px; }
+    .event-time { color: var(--muted); font-size: 13px; padding-top: 8px; white-space: nowrap; }
+
+    .empty-text { color: var(--muted); padding: 20px 0; }
+
+    /* Info rows */
+    .info-list { display: flex; flex-direction: column; gap: 18px; }
+    .info-value { margin-top: 4px; font-weight: 600; }
+
+    .package-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+    .info-table { width: 100%; min-width: 0; }
+    .info-table td { padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+    .info-table td:first-child { color: var(--muted); width: 40%; }
+    .info-table tr:last-child td { border-bottom: none; }
+
+    @media (max-width: 1100px) {
+        .detail-layout { grid-template-columns: 1fr; }
+        .detail-actions { align-items: flex-start; }
+        .eta-block { text-align: left; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <a href="{% url 'shipments' %}" class="back-link">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        All shipments
+    </a>
+
+    <!-- Header -->
+    <div class="detail-head">
+        <div>
+            <div class="detail-title">
+                <h1>{{ shipment.shipment_id }}</h1>
+                <span class="badge {{ shipment.status_class }}">{{ shipment.get_status_display }}</span>
+            </div>
+            <div class="detail-meta">
+                {{ shipment.get_purpose_display }} · {{ shipment.get_carrier_display }} ·
+                AWB {{ shipment.awb_display }} ·
+                {% if shipment.last_synced_at %}
+                    Synced {{ shipment.last_synced_at|timesince }} ago
+                {% else %}
+                    Not synced yet
+                {% endif %}
+                {% if shipment.carrier_status %}<br>Carrier: {{ shipment.carrier_status }}{% endif %}
+            </div>
+        </div>
+
+        <div class="detail-actions">
+            <div class="action-buttons">
+                <form method="POST" action="{% url 'shipment_sync' shipment.shipment_id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline">
+                        <svg class="icon"><use href="#i-refresh"/></svg>
+                        Refresh status
+                    </button>
+                </form>
+
+                <button type="button" class="btn btn-outline" disabled
+                        title="Labels are only available for shipments created in UDT Shipping">
+                    <svg class="icon"><use href="#i-download"/></svg>
+                    Download label
+                </button>
+
+                {% if request.user.is_staff %}
+                    <a href="{% url 'admin:app1_shipment_change' shipment.pk %}"
+                       class="btn btn-outline icon-btn" title="Edit in admin">
+                        <svg class="icon"><use href="#i-dots"/></svg>
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="eta-block">
+                <div class="label-caps">Estimated delivery</div>
+                <div class="value {% if shipment.eta_is_delayed %}delayed{% endif %}">
+                    {% if shipment.eta %}{{ shipment.eta|date:"j F" }}{% else %}{{ shipment.eta_label }}{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="detail-layout">
+
+        <!-- Main panel with tabs -->
+        <section class="panel">
+            <div class="tabs detail-tabs" id="detailTabs">
+                <button type="button" class="tab detail-tab active" data-panel="panel-tracking">Tracking</button>
+                <button type="button" class="tab detail-tab" data-panel="panel-documents">Documents</button>
+                <button type="button" class="tab detail-tab" data-panel="panel-notifications">Notifications</button>
+                <button type="button" class="tab detail-tab" data-panel="panel-activity">Activity</button>
+            </div>
+
+            <!-- Tracking: carrier scans only -->
+            <div class="tab-panel active" id="panel-tracking">
+                {% with scans=shipment.carrier_events %}
+                    {% if scans %}
+                        <ul class="timeline">
+                            {% for event in scans %}
+                                <li class="timeline-item">
+                                    <div class="event-icon {{ event.color }}">
+                                        <svg class="icon"><use href="#{{ event.icon }}"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="event-title">{{ event.title }}</div>
+                                        {% if event.description %}
+                                            <div class="event-desc">{{ event.description }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="event-time">{{ event.occurred_at|date:"j M · H:i" }}</div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="empty-text">No carrier scans yet. Click <strong>Refresh status</strong> to check with the carrier.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <!-- Documents -->
+            <div class="tab-panel" id="panel-documents">
+                <p class="empty-text">No documents yet. Labels, invoices and customs paperwork will appear here.</p>
+            </div>
+
+            <!-- Notifications -->
+            <div class="tab-panel" id="panel-notifications">
+                <table class="info-table">
+                    <tr><td>Client communication</td><td>{{ shipment.get_communication_display }}</td></tr>
+                    <tr><td>Client recipient</td><td>{{ shipment.recipient_email|default:"—" }}</td></tr>
+                    <tr><td>Internal recipients</td><td>{{ shipment.internal_recipients }}</td></tr>
+                    <tr><td>Release rule</td><td>{% if shipment.is_export %}Held until customs clears{% else %}Immediate{% endif %}</td></tr>
+                </table>
+            </div>
+
+            <!-- Activity: internal log + record details -->
+            <div class="tab-panel" id="panel-activity">
+                <table class="info-table">
+                    <tr><td>Registered by</td><td>{{ shipment.owner.get_full_name|default:shipment.owner.username }}</td></tr>
+                    <tr><td>Registered on</td><td>{{ shipment.created_at|date:"j M Y · H:i" }}</td></tr>
+                    <tr><td>Last updated</td><td>{{ shipment.updated_at|date:"j M Y · H:i" }}</td></tr>
+                    <tr><td>Last carrier sync</td><td>{{ shipment.last_synced_at|date:"j M Y · H:i"|default:"Never" }}</td></tr>
+                    <tr><td>Branch</td><td>{{ shipment.branch }}</td></tr>
+                </table>
+
+                {% with log=shipment.system_events %}
+                    {% if log %}
+                        <div class="section-title">Internal log</div>
+                        <ul class="timeline">
+                            {% for event in log %}
+                                <li class="timeline-item">
+                                    <div class="event-icon {{ event.color }}">
+                                        <svg class="icon"><use href="#{{ event.icon }}"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="event-title">{{ event.title }}</div>
+                                        {% if event.description %}
+                                            <div class="event-desc">{{ event.description }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="event-time">{{ event.occurred_at|date:"j M · H:i" }}</div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </section>
+
+        <!-- Sidebar -->
+        <div class="side-stack">
+            <section class="panel">
+                <div class="panel-title">Shipment summary</div>
+                <div class="info-list">
+                    <div>
+                        <div class="label-caps">Route</div>
+                        <div class="info-value">{{ shipment.route_display }}</div>
+                    </div>
+                    <div>
+                        <div class="label-caps">Client release</div>
+                        <div class="info-value">{{ shipment.client_release_display }}</div>
+                    </div>
+                    <div>
+                        <div class="label-caps">Owner</div>
+                        <div class="info-value">{{ shipment.owner_short }}</div>
+                    </div>
+                    <div>
+                        <div class="label-caps">Client recipient</div>
+                        <div class="info-value">{{ shipment.recipient_email|default:"—" }}</div>
+                    </div>
+                    <div>
+                        <div class="label-caps">Internal recipients</div>
+                        <div class="info-value">{{ shipment.internal_recipients }}</div>
+                    </div>
+                    <div>
+                        <div class="label-caps">Carrier account</div>
+                        <div class="info-value">{{ shipment.carrier_account }}</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-title">Package</div>
+                <div class="package-grid">
+                    <div>
+                        <div class="label-caps">Pieces</div>
+                        <div class="info-value">{{ shipment.pieces }}</div>
+                    </div>
+                    <div>
+                        <div class="label-caps">Weight</div>
+                        <div class="info-value">{% if shipment.weight_kg %}{{ shipment.weight_kg|floatformat:"-2" }} kg{% else %}—{% endif %}</div>
+                    </div>
+                    <div>
+                        <div class="label-caps">Dimensions</div>
+                        <div class="info-value">{{ shipment.dimensions_display }}</div>
+                    </div>
+                    <div>
+                        <div class="label-caps">Service</div>
+                        <div class="info-value">{{ shipment.service|default:"—" }}</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Switch detail tabs: find the tab container by id, then show the panel by id
+    const detailTabs = document.getElementById("detailTabs");
+
+    detailTabs.addEventListener("click", (event) => {
+        const tab = event.target.closest(".detail-tab");
+        if (!tab) return;
+
+        detailTabs.querySelectorAll(".detail-tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+
+        tab.classList.add("active");
+        document.getElementById(tab.dataset.panel).classList.add("active");
+    });
+</script>
+{% endblock %}

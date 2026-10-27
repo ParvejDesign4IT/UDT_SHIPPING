@@ -1,0 +1,76 @@
+<tr {% if shipment.status == "action_required" %}class="row-alert"{% endif %}>
+    <td>
+        <button type="button"
+                id="status-{{ shipment.pk }}"
+                class="badge {{ shipment.status_class }} status-link"
+                data-url="{{ shipment.get_absolute_url }}"
+                title="View {{ shipment.shipment_id }}">
+            {{ shipment.get_status_display }}
+        </button>
+        {% if shipment.carrier_status %}
+            <div class="secondary-text" title="Latest carrier status">{{ shipment.carrier_status }}</div>
+        {% endif %}
+    </td>
+    <td>
+        <div class="primary-text">{{ shipment.shipment_id }}</div>
+        <div class="secondary-text">AWB {{ shipment.awb_display }}</div>
+    </td>
+    <td>
+        <div class="primary-text">{{ shipment.get_purpose_display }}</div>
+        <div class="secondary-text">{{ shipment.client_reference|default:"—" }}</div>
+    </td>
+    <td>
+        <span class="comm {{ shipment.communication_class }}">
+            {% if shipment.communication_icon %}
+                <svg class="icon"><use href="#{{ shipment.communication_icon }}"/></svg>
+            {% endif %}
+            {{ shipment.get_communication_display }}
+        </span>
+    </td>
+    <td>
+        <span class="carrier {{ shipment.carrier }}">{{ shipment.get_carrier_display }}</span>
+    </td>
+    <td>
+        <span class="eta {% if shipment.eta_is_delayed %}delayed{% endif %}">{{ shipment.eta_label }}</span>
+    </td>
+    <td>{{ shipment.owner_short }}</td>
+    <td>
+        <button type="button"
+                id="menu-btn-{{ shipment.pk }}"
+                class="more-btn"
+                aria-haspopup="true"
+                aria-expanded="false"
+                title="More actions">
+            <svg class="icon"><use href="#i-dots"/></svg>
+        </button>
+
+        <div class="row-menu" id="menu-{{ shipment.pk }}" hidden>
+            <a href="{{ shipment.get_absolute_url }}" class="row-menu-item">Open shipment</a>
+
+            {% if shipment.tracking_url %}
+                <a href="{{ shipment.tracking_url }}" class="row-menu-item"
+                   target="_blank" rel="noopener noreferrer">
+                    Track on {{ shipment.get_carrier_display }} ↗
+                </a>
+                <button type="button" class="row-menu-item"
+                        data-copy="{{ shipment.tracking_url }}"
+                        data-label="Copy tracking link">
+                    Copy tracking link
+                </button>
+            {% endif %}
+
+            <button type="button" class="row-menu-item" disabled
+                    title="Labels are only available for shipments created in UDT Shipping">
+                Download label
+            </button>
+
+            <div class="row-menu-divider"></div>
+
+            <button type="button" class="row-menu-item danger"
+                    data-delete-url="{% url 'shipment_delete' shipment.shipment_id %}"
+                    data-shipment="{{ shipment.shipment_id }}">
+                Delete
+            </button>
+        </div>
+    </td>
+</tr>

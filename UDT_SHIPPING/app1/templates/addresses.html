@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Addresses{% endblock %}
+
+{% block extra_css %}
+<style>
+    .address-search { width: 560px; max-width: 100%; margin-bottom: 20px; }
+
+    .address-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+
+    .address-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 24px;
+    }
+
+    .address-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 22px;
+    }
+
+    .addr-icon {
+        width: 50px; height: 50px;
+        border-radius: 50%;
+        background: #eef3f6;
+        color: var(--primary);
+        display: grid; place-items: center;
+    }
+
+    .address-name { font-size: 20px; font-weight: 900; }
+    .address-location { color: var(--muted); margin: 6px 0 18px; }
+
+    .address-bottom { display: flex; justify-content: space-between; align-items: center; }
+
+    .tag {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 3px 11px;
+        font-size: 14px; font-weight: 600;
+    }
+
+    .verify { font-size: 14px; font-weight: 800; }
+    .verify.ok { color: var(--green); }
+    .verify.review { color: var(--amber); }
+
+    .no-results { color: var(--muted); padding: 30px 0; display: none; }
+
+    @media (max-width: 1200px) { .address-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 700px)  { .address-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Reusable records</div>
+            <h1 class="page-title">Addresses</h1>
+            <p class="page-desc">Validated UDT, client, supplier, and return locations.</p>
+        </div>
+
+        <a href="#" class="btn btn-primary">
+            <svg class="icon"><use href="#i-plus"/></svg>
+            Add address
+        </a>
+    </div>
+
+    <label class="search address-search">
+        <svg class="icon"><use href="#i-search"/></svg>
+        <input type="text" id="addressSearch" placeholder="Search addresses">
+    </label>
+
+    <div class="address-grid" id="addressGrid">
+
+        <div class="address-card">
+            <div class="address-top">
+                <div class="addr-icon"><svg class="icon"><use href="#i-building"/></svg></div>
+                <button class="more-btn"><svg class="icon"><use href="#i-dots"/></svg></button>
+            </div>
+            <div class="address-name">UDT Workshop</div>
+            <div class="address-location">Navi Mumbai, Maharashtra</div>
+            <div class="address-bottom">
+                <span class="tag">UDT</span>
+                <span class="verify ok">✓ Verified</span>
+            </div>
+        </div>
+
+        <div class="address-card">
+            <div class="address-top">
+                <div class="addr-icon"><svg class="icon"><use href="#i-building"/></svg></div>
+                <button class="more-btn"><svg class="icon"><use href="#i-dots"/></svg></button>
+            </div>
+            <div class="address-name">JNPT Dispatch Point</div>
+            <div class="address-location">Nhava Sheva, Maharashtra</div>
+            <div class="address-bottom">
+                <span class="tag">UDT</span>
+                <span class="verify ok">✓ Verified</span>
+            </div>
+        </div>
+
+        <div class="address-card">
+            <div class="address-top">
+                <div class="addr-icon"><svg class="icon"><use href="#i-building"/></svg></div>
+                <button class="more-btn"><svg class="icon"><use href="#i-dots"/></svg></button>
+            </div>
+            <div class="address-name">Northstar Devices</div>
+            <div class="address-location">Austin, Texas, USA</div>
+            <div class="address-bottom">
+                <span class="tag">Client</span>
+                <span class="verify ok">✓ Verified</span>
+            </div>
+        </div>
+
+        <div class="address-card">
+            <div class="address-top">
+                <div class="addr-icon"><svg class="icon"><use href="#i-building"/></svg></div>
+                <button class="more-btn"><svg class="icon"><use href="#i-dots"/></svg></button>
+            </div>
+            <div class="address-name">Axis Retail FZCO</div>
+            <div class="address-location">Dubai, UAE</div>
+            <div class="address-bottom">
+                <span class="tag">Client</span>
+                <span class="verify ok">✓ Verified</span>
+            </div>
+        </div>
+
+        <div class="address-card">
+            <div class="address-top">
+                <div class="addr-icon"><svg class="icon"><use href="#i-building"/></svg></div>
+                <button class="more-btn"><svg class="icon"><use href="#i-dots"/></svg></button>
+            </div>
+            <div class="address-name">Shenzhen Parts Co.</div>
+            <div class="address-location">Bao'an, Shenzhen, China</div>
+            <div class="address-bottom">
+                <span class="tag">Supplier</span>
+                <span class="verify review">Review needed</span>
+            </div>
+        </div>
+
+    </div>
+
+    <p class="no-results" id="noResults">No addresses match your search.</p>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const addressSearch = document.getElementById("addressSearch");
+    const cards = document.querySelectorAll(".address-card");
+    const noResults = document.getElementById("noResults");
+
+    addressSearch.addEventListener("input", () => {
+        const query = addressSearch.value.trim().toLowerCase();
+        let visible = 0;
+
+        cards.forEach(card => {
+            const show = card.textContent.toLowerCase().includes(query);
+            card.style.display = show ? "" : "none";
+            if (show) visible++;
+        });
+
+        noResults.style.display = visible ? "none" : "block";
+    });
+</script>
+{% endblock %}

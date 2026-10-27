@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notif-layout {
+        display: grid;
+        grid-template-columns: 1fr 420px;
+        gap: 24px;
+        align-items: start;
+    }
+
+    .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 28px 30px;
+    }
+
+    .panel-title { font-size: 20px; font-weight: 900; }
+
+    .rule {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        padding: 20px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .rule:last-child { border-bottom: none; }
+    .rule-title { font-size: 17px; font-weight: 800; }
+    .rule-desc { color: var(--muted); margin-top: 4px; }
+
+    /* Toggle switch */
+    .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+        position: absolute; inset: 0;
+        background: #d5dce4;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .slider::before {
+        content: "";
+        position: absolute;
+        width: 18px; height: 18px;
+        left: 3px; top: 3px;
+        background: var(--sidebar);
+        border-radius: 50%;
+        transition: transform 0.2s, background 0.2s;
+    }
+
+    .switch input:checked + .slider { background: var(--primary); }
+    .switch input:checked + .slider::before { transform: translateX(18px); background: #fff; }
+
+    /* Email preview */
+    .preview-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 22px;
+    }
+
+    .email {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px;
+        background: #f8fafc;
+    }
+
+    .email-meta {
+        color: var(--muted);
+        line-height: 1.6;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 18px;
+    }
+
+    .email-eyebrow { color: var(--primary); font-size: 14px; font-weight: 800; text-transform: uppercase; }
+    .email-title { font-size: 22px; font-weight: 900; margin: 8px 0 12px; line-height: 1.35; }
+    .email-body { color: var(--muted); line-height: 1.7; }
+
+    .email-eta {
+        display: flex;
+        justify-content: space-between;
+        background: #fff;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin: 20px 0 16px;
+    }
+
+    .email-btn { width: 100%; justify-content: center; }
+
+    @media (max-width: 1200px) { .notif-layout { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Communication</div>
+            <h1 class="page-title">Notification rules</h1>
+            <p class="page-desc">External client messages and internal operational alerts are intentionally separated.</p>
+        </div>
+    </div>
+
+    <div class="notif-layout">
+
+        <section class="panel">
+            <div class="panel-title">Event defaults</div>
+
+            <div class="rule">
+                <div>
+                    <div class="rule-title">Label or AWB recorded</div>
+                    <div class="rule-desc">Internal only for gated exports</div>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="rule">
+                <div>
+                    <div class="rule-title">Customs cleared</div>
+                    <div class="rule-desc">First client tracking email</div>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="rule">
+                <div>
+                    <div class="rule-title">Picked up</div>
+                    <div class="rule-desc">Only after client release</div>
+                </div>
+                <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+            </div>
+
+            <div class="rule">
+                <div>
+                    <div class="rule-title">Delay or ETA change</div>
+                    <div class="rule-desc">Client when timing is affected</div>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="rule">
+                <div>
+                    <div class="rule-title">Customs or address action</div>
+                    <div class="rule-desc">Internal first unless client action is needed</div>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="rule">
+                <div>
+                    <div class="rule-title">Out for delivery</div>
+                    <div class="rule-desc">Client on the delivery day</div>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+
+            <div class="rule">
+                <div>
+                    <div class="rule-title">Delivered</div>
+                    <div class="rule-desc">Client and shipment owner</div>
+                </div>
+                <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+            </div>
+        </section>
+
+        <aside class="panel">
+            <div class="preview-head">
+                <div class="panel-title">Client email preview</div>
+                <span class="tag" style="border:1px solid var(--border);border-radius:999px;padding:3px 11px;font-size:14px;font-weight:600;">Customs cleared</span>
+            </div>
+
+            <div class="email">
+                <div class="email-meta">
+                    To: client@northstar.com<br>
+                    CC: Owner, Manager, Chief of Staff
+                </div>
+
+                <div class="email-eyebrow">Shipment update</div>
+                <div class="email-title">Your prototype shipment is on the way</div>
+                <p class="email-body">
+                    Customs clearance is complete. FedEx is transporting shipment
+                    UDT-SHP-2609-0181 to Austin.
+                </p>
+
+                <div class="email-eta">
+                    <strong>Estimated delivery</strong>
+                    <span>16 September</span>
+                </div>
+
+                <a href="#" class="btn btn-primary email-btn">Track shipment</a>
+            </div>
+        </aside>
+
+    </div>
+
+{% endblock %}

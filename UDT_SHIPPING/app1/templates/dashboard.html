@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Clickable summary cards */
+    a.stat-link {
+        display: block;
+        color: inherit;
+        text-decoration: none;
+        transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    }
+
+    a.stat-link:hover {
+        transform: translateY(-2px);
+        border-color: var(--primary);
+        box-shadow: 0 6px 18px rgba(15, 31, 51, 0.10);
+    }
+
+    a.stat-link.selected {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(13, 107, 110, 0.18);
+    }
+
+    /* Tabs and search */
+    a.tab { text-decoration: none; display: inline-block; }
+
+    form.search { margin: 0; }
+
+    .clear-search {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 20px;
+        line-height: 1;
+        padding: 0 2px;
+    }
+
+    .clear-search:hover { color: var(--text); }
+
+
+    /* Table footer and empty state */
+    .table-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+    }
+
+    .table-footer a { color: var(--primary); font-weight: 700; text-decoration: none; }
+    .table-footer a:hover { text-decoration: underline; }
+
+    .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
+    .empty-state .btn { margin-top: 16px; }
+
+    #shipmentTable { scroll-margin-top: 20px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="eyebrow">Daily control</div>
+    <h1 class="page-title">Active shipments</h1>
+    <p class="page-desc">
+        Exceptions and customs-held exports are first. Routine carrier scans stay inside each shipment.
+    </p>
+
+    <!-- Clickable summary cards -->
+    <section class="stats">
+        {% for card in cards %}
+            <a href="?tab={{ card.key }}#shipmentTable"
+               id="card-{{ card.key }}"
+               class="stat-card stat-link {% if card.key == current_tab %}selected{% endif %}"
+               title="Show {{ card.label|lower }} shipments">
+                <div class="stat-icon {{ card.color }}"><svg class="icon"><use href="#{{ card.icon }}"/></svg></div>
+                <div class="stat-value">{{ card.value }}</div>
+                <div class="stat-label">{{ card.label }}</div>
+            </a>
+        {% endfor %}
+    </section>
+
+    <!-- Tabs + search -->
+    <div class="toolbar" id="shipmentTable">
+        <div class="tabs">
+            {% for key, label in tabs %}
+                <a href="?tab={{ key }}{% if query %}&q={{ query|urlencode }}{% endif %}#shipmentTable"
+                   class="tab {% if key == current_tab %}active{% endif %}">
+                    {{ label }}
+                </a>
+            {% endfor %}
+        </div>
+
+        <div class="toolbar-right">
+            <form method="get" class="search">
+                <input type="hidden" name="tab" value="{{ current_tab }}">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <input type="text" name="q" value="{{ query }}" placeholder="Search ID, client or AWB">
+                {% if query %}
+                    <a href="?tab={{ current_tab }}#shipmentTable" class="clear-search" title="Clear search">×</a>
+                {% endif %}
+            </form>
+
+            <button type="button" class="btn btn-outline">
+                <svg class="icon"><use href="#i-filter"/></svg>
+                Filters
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Table -->
+    {% if shipments %}
+
+        <div class="table-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Shipment</th>
+                        <th>Purpose / client</th>
+                        <th>Communication</th>
+                        <th>Carrier</th>
+                        <th>ETA</th>
+                        <th>Owner</th>
+                        <th></th>
+                    </tr>
+                </thead>
+
+                <tbody id="shipmentRows">
+                    {% for shipment in shipments %}
+                        {% include "partials/shipment_row.html" %}
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if total > row_limit %}
+                <div class="table-footer">
+                    <span>Showing {{ row_limit }} of {{ total }}</span>
+                    <a href="{% url 'shipments' %}">View all shipments →</a>
+                </div>
+            {% endif %}
+        </div>
+
+    {% else %}
+
+        <div class="table-card empty-state">
+            {% if query %}
+                <p>No shipments match “{{ query }}”.</p>
+            {% elif current_tab == "drafts" %}
+                <p>No drafts yet.</p>
+            {% elif current_tab == "active" %}
+                <p>No active shipments yet.</p>
+                <a href="{% url 'register_tracking' %}" class="btn btn-primary">
+                    <svg class="icon"><use href="#i-plus"/></svg>
+                    Register your first AWB
+                </a>
+            {% else %}
+                <p>No shipments in “{{ current_label }}” right now.</p>
+            {% endif %}
+        </div>
+
+    {% endif %}
+
+{% endblock %}

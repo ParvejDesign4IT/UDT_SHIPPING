@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-layout {
+        display: grid;
+        grid-template-columns: 250px 1fr;
+        gap: 30px;
+        align-items: start;
+    }
+
+    .settings-nav { display: flex; flex-direction: column; gap: 4px; }
+
+    .settings-tab {
+        background: none;
+        border: none;
+        border-left: 3px solid transparent;
+        text-align: left;
+        font: inherit; font-size: 16px; font-weight: 600;
+        color: var(--muted);
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        cursor: pointer;
+    }
+
+    .settings-tab:hover { background: #e9edf2; }
+    .settings-tab.active { color: var(--text); border-left-color: var(--primary); background: #fff; }
+
+    .settings-panel {
+        display: none;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 30px;
+    }
+
+    .settings-panel.active { display: block; }
+
+    .panel-title { font-size: 22px; font-weight: 900; }
+    .panel-desc { color: var(--muted); margin: 6px 0 20px; }
+
+    .setting-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .setting-info { flex: 1; }
+    .setting-name { font-size: 18px; font-weight: 800; }
+    .setting-meta { color: var(--muted); font-size: 14px; margin-top: 2px; }
+
+    .status-pill {
+        background: var(--green-bg);
+        color: var(--green);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 14px; font-weight: 600;
+    }
+
+    .btn-sm { padding: 8px 14px; font-size: 15px; }
+
+    .form-row { margin-bottom: 18px; }
+    .form-row label { display: block; font-weight: 700; margin-bottom: 6px; }
+
+    .form-row input,
+    .form-row select {
+        width: 100%;
+        max-width: 420px;
+        padding: 11px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font: inherit;
+    }
+
+    @media (max-width: 900px) { .settings-layout { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Administration</div>
+            <h1 class="page-title">Settings</h1>
+            <p class="page-desc">Carrier connections, branch routing, customs controls, reminders, and access.</p>
+        </div>
+    </div>
+
+    <div class="settings-layout">
+
+        <nav class="settings-nav">
+            <button class="settings-tab active" data-panel="carriers">Carrier accounts</button>
+            <button class="settings-tab" data-panel="routing">Branch routing</button>
+            <button class="settings-tab" data-panel="customs">Customs controls</button>
+            <button class="settings-tab" data-panel="reminders">Reminders</button>
+            <button class="settings-tab" data-panel="access">Access</button>
+        </nav>
+
+        <div>
+            <!-- Carrier accounts -->
+            <section class="settings-panel active" id="carriers">
+                <div class="panel-title">Carrier accounts</div>
+                <p class="panel-desc">Credentials stay server-side; users see masked accounts.</p>
+
+                <div class="setting-row">
+                    <span class="carrier dhl">DHL</span>
+                    <div class="setting-info">
+                        <div class="setting-name">DHL Business</div>
+                        <div class="setting-meta">Account •••• not added  · Synced 2 min ago</div>
+                    </div>
+                    <span class="status-pill">Connected</span>
+                    <button class="btn btn-outline btn-sm">
+                        <svg class="icon"><use href="#i-refresh"/></svg> Test
+                    </button>
+                </div>
+
+                <div class="setting-row">
+                    <span class="carrier fedex">FedEx</span>
+                    <div class="setting-info">
+                        <div class="setting-name">FedEx International</div>
+                        <div class="setting-meta">Account •••• 7714 · Synced 2 min ago</div>
+                    </div>
+                    <span class="status-pill">Connected</span>
+                    <button class="btn btn-outline btn-sm">
+                        <svg class="icon"><use href="#i-refresh"/></svg> Test
+                    </button>
+                </div>
+            </section>
+
+            <!-- Branch routing -->
+            <section class="settings-panel" id="routing">
+                <div class="panel-title">Branch routing</div>
+                <p class="panel-desc">Choose which branch handles shipments by default.</p>
+
+                <div class="form-row">
+                    <label for="defaultBranch">Default branch</label>
+                    <select id="defaultBranch">
+                        <option>Mumbai operations</option>
+                        <option>Navi Mumbai workshop</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label for="exportPoint">Export dispatch point</label>
+                    <select id="exportPoint">
+                        <option>JNPT Dispatch Point</option>
+                        <option>UDT Workshop</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary">Save routing</button>
+            </section>
+
+            <!-- Customs controls -->
+            <section class="settings-panel" id="customs">
+                <div class="panel-title">Customs controls</div>
+                <p class="panel-desc">Rules applied before client communication is released.</p>
+
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-name">Hold client emails until customs clears</div>
+                        <div class="setting-meta">Applies to all exports</div>
+                    </div>
+                    <span class="status-pill">Enabled</span>
+                </div>
+
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-name">Require invoice before label creation</div>
+                        <div class="setting-meta">Commercial shipments only</div>
+                    </div>
+                    <span class="status-pill">Enabled</span>
+                </div>
+            </section>
+
+            <!-- Reminders -->
+            <section class="settings-panel" id="reminders">
+                <div class="panel-title">Reminders</div>
+                <p class="panel-desc">When owners are nudged about stalled shipments.</p>
+
+                <div class="form-row">
+                    <label for="stallDays">Remind owner after (days without update)</label>
+                    <input type="number" id="stallDays" value="2" min="1">
+                </div>
+
+                <button class="btn btn-primary">Save reminders</button>
+            </section>
+
+            <!-- Access -->
+            <section class="settings-panel" id="access">
+                <div class="panel-title">Access</div>
+                <p class="panel-desc">Who can create shipments and change settings.</p>
+
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                        <div class="setting-meta">Shipping owner · Full access</div>
+                    </div>
+                    <span class="status-pill">You</span>
+                </div>
+            </section>
+        </div>
+
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const settingsTabs = document.querySelectorAll(".settings-tab");
+    const panels = document.querySelectorAll(".settings-panel");
+
+    settingsTabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            settingsTabs.forEach(t => t.classList.remove("active"));
+            panels.forEach(p => p.classList.remove("active"));
+
+            tab.classList.add("active");
+            document.getElementById(tab.dataset.panel).classList.add("active");
+        });
+    });
+</script>
+{% endblock %}
