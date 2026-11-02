@@ -18,6 +18,18 @@ from .serializers import ShipmentSerializer
 from .tracking import TrackingError, sync_shipment, track
 from django.utils.http import url_has_allowed_host_and_scheme 
 
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+
+from .models import Shipment, ShipmentRecipient
+from .notifications import notify_recipients
+
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Shipment, ShipmentEvent, ShipmentRecipient
+from .notifications import notify_recipients, send_delivered_email, send_status_update
+
 ATTENTION_STATUSES = [
     Shipment.Status.ACTION_REQUIRED,
     Shipment.Status.CUSTOMS_PENDING,
@@ -183,50 +195,95 @@ class ShipmentDetailView(LoginRequiredMixin, DetailView):
     slug_url_kwarg = "shipment_id"
 
     def get_queryset(self):
-        return Shipment.objects.select_related("owner").prefetch_related("events")
+        return Shipment.objects.select_related("owner").prefetch_related("events", "recipients")
+
+
+MAX_EXTRA_EMAILS = 10
 
 
 class RegisterTrackingView(LoginRequiredMixin, View):
     template_name = "register_tracking.html"
 
-    def get_context(self, form_data=None, errors=None):
+    def get_context(self, form_data=None, errors=None, extra_emails=None):
         return {
             "carrier_choices": Shipment.Carrier.choices,
             "purpose_choices": Shipment.Purpose.choices,
             "form_data": form_data or {},
             "errors": errors or {},
+            "extra_emails": extra_emails or [],
+            "max_extra_emails": MAX_EXTRA_EMAILS,
         }
+
+    def clean_extra_emails(self, request):
+        """Return (valid unique emails, invalid entries) from the extra email fields."""
+        valid, invalid = [], []
+        for raw in request.POST.getlist("extra_emails"):
+            email = raw.strip().lower()
+            if not email:
+                continue
+            try:
+                validate_email(email)
+            except ValidationError:
+                invalid.append(email)
+                continue
+            if email not in valid:
+                valid.append(email)
+        return valid, invalid
 
     def get(self, request):
         return render(request, self.template_name, self.get_context())
 
     def post(self, request):
         serializer = ShipmentSerializer(data=request.POST)
+        extra_emails, invalid_emails = self.clean_extra_emails(request)
 
-        if serializer.is_valid():
-            shipment = serializer.save(owner=request.user)
+        errors = {}
+        if not serializer.is_valid():
+            errors.update(serializer.errors)
+        if invalid_emails:
+            errors["extra_emails"] = [f"Invalid email: {', '.join(invalid_emails)}"]
+        elif len(extra_emails) > MAX_EXTRA_EMAILS:
+            errors["extra_emails"] = [f"You can add up to {MAX_EXTRA_EMAILS} extra emails."]
 
-            try:
-                sync_shipment(shipment)
-                messages.success(
-                    request,
-                    f"{shipment.shipment_id} registered. Carrier status: {shipment.carrier_status}",
-                )
-            except TrackingError as exc:
-                messages.warning(
-                    request,
-                    f"{shipment.shipment_id} registered, but live status could not be fetched: {exc}",
-                )
+        if errors:
+            return render(
+                request,
+                self.template_name,
+                self.get_context(request.POST, errors, request.POST.getlist("extra_emails")),
+                status=400,
+            )
 
-            return redirect("shipments")
+        shipment = serializer.save(owner=request.user)
 
-        # Re-show the form with the user's input and the errors
-        return render(
-            request,
-            self.template_name,
-            self.get_context(request.POST, serializer.errors),
-            status=400,
-        )
+        # Save every recipient: the client email plus the extra ones
+        all_emails = [shipment.recipient_email.lower()] if shipment.recipient_email else []
+        all_emails += extra_emails
+        for email in dict.fromkeys(all_emails):          # keeps order, removes duplicates
+            ShipmentRecipient.objects.get_or_create(shipment=shipment, email=email)
+
+        # Live carrier status
+        try:
+            sync_shipment(shipment)
+            messages.success(
+                request,
+                f"{shipment.shipment_id} registered. Carrier status: {shipment.carrier_status}",
+            )
+        except TrackingError as exc:
+            messages.warning(
+                request,
+                f"{shipment.shipment_id} registered, but live status could not be fetched: {exc}",
+            )
+
+        # Notification emails
+        sent, failed = notify_recipients(shipment)
+        if sent:
+            messages.info(request, f"Tracking email sent to {', '.join(sent)}.")
+        elif shipment.recipients.exists() and shipment.communication == Shipment.Communication.HELD:
+            messages.info(request, "Tracking emails are queued and will be sent automatically when customs clears.")
+        if failed:
+            messages.error(request, f"Could not send email to: {', '.join(failed)}. Check the email settings.")
+
+        return redirect("shipments")
 
 
 class TrackingPreviewView(LoginRequiredMixin, View):
@@ -268,9 +325,16 @@ class ShipmentSyncView(LoginRequiredMixin, View):
             messages.success(request, f"Status refreshed: {shipment.carrier_status}")
         except TrackingError as exc:
             messages.error(request, f"Could not refresh status: {exc}")
+            return redirect(shipment)
+
+        # If this refresh released customs, queued emails go out now
+        sent, failed = notify_recipients(shipment)
+        if sent:
+            messages.info(request, f"Tracking email sent to {', '.join(sent)}.")
+        if failed:
+            messages.error(request, f"Could not send email to: {', '.join(failed)}. Check the email settings.")
 
         return redirect(shipment)
-
 
 # ================================================================ Other pages
 
@@ -289,15 +353,116 @@ class SettingsView(LoginRequiredMixin, TemplateView):
 # ================================================================ REST API
 
 class ShipmentListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Shipment.objects.select_related("owner")
+    queryset = Shipment.objects.select_related("owner").prefetch_related("recipients")
     serializer_class = ShipmentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        shipment = serializer.save(owner=request.user)
+
+        # 1. Live carrier status
+        sync_error = None
+        try:
+            sync_shipment(shipment)
+        except TrackingError as exc:
+            sync_error = str(exc)
+
+        # 2. First tracking email
+        sent, failed = notify_recipients(shipment)
+        has_recipients = shipment.recipients.exists()
+
+        if sent and not failed:
+            email_status, message = "sent", f"Tracking email sent to {len(sent)} recipient(s)."
+        elif sent and failed:
+            email_status, message = "partial", "Some emails could not be sent. Check the email settings."
+        elif failed:
+            email_status, message = "failed", "No emails could be sent. Check the email settings."
+        elif has_recipients and shipment.communication == Shipment.Communication.HELD:
+            email_status, message = "queued", "Export is held for customs. Emails will be sent automatically after clearance."
+        else:
+            email_status, message = "no_recipients", "No email recipients were provided."
+
+        data = self.get_serializer(shipment).data
+        data["email"] = {
+            "status": email_status,
+            "sent": sent,
+            "failed": failed,
+            "message": message,
+        }
+        data["sync_error"] = sync_error
+
+        return Response(data, status=201)
 
 
 class ShipmentDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Shipment.objects.select_related("owner")
     serializer_class = ShipmentSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+EMAIL_ACTIONS = {
+    "first": notify_recipients,             # first tracking email (skipped while customs hold is on)
+    "status_update": send_status_update,    # the 2-day update
+    "delivered": send_delivered_email,      # final delivered email (sent once)
+}
+
+
+class ShipmentEmailsAPIView(APIView):
+    """
+    GET  → recipients, schedule dates and email log for one shipment.
+    POST → send one email type now (staff only), body: {"type": "first" | "status_update" | "delivered"}
+    """
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+
+    def summary(self, shipment):
+        return {
+            "id": shipment.id,
+            "shipment_id": shipment.shipment_id,
+            "status": shipment.status,
+            "communication": shipment.communication,
+            "last_update_email_at": shipment.last_update_email_at,
+            "delivered_email_sent_at": shipment.delivered_email_sent_at,
+            "recipients": [
+                {"email": r.email, "notified_at": r.notified_at}
+                for r in shipment.recipients.all()
+            ],
+            "email_log": [
+                {"title": e.title, "to": e.description, "at": e.occurred_at}
+                for e in shipment.events.filter(kind=ShipmentEvent.Kind.EMAIL_SENT)
+            ],
+        }
+
+    def get(self, request, pk):
+        shipment = get_object_or_404(Shipment, pk=pk)
+        return Response(self.summary(shipment))
+
+    def post(self, request, pk):
+        shipment = get_object_or_404(Shipment, pk=pk)
+        email_type = request.data.get("type")
+        action = EMAIL_ACTIONS.get(email_type)
+
+        if not action:
+            return Response(
+                {"error": "type must be one of: first, status_update, delivered"},
+                status=400,
+            )
+
+        sent, failed = action(shipment)
+        shipment.refresh_from_db()
+
+        data = self.summary(shipment)
+        data.update({"type": email_type, "sent": sent, "failed": failed})
+
+        if not sent and not failed:
+            data["note"] = (
+                "Nothing was sent. The shipment may be on customs hold, recipients may already "
+                "have this email, or (for status_update) the first email was sent less than 1 hour ago."
+            )
+
+        return Response(data, status=207 if failed else 200)

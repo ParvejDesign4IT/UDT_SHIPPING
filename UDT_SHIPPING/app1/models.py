@@ -8,6 +8,7 @@ from django.utils import timezone
 CARRIER_ACCOUNTS = {
     "dhl": "DHL Tracking API · Design 4 IT",
     "fedex": "FedEx · Ultimate Design Technology •••• 9167",
+    "ups": "UPS · Ultimate Design Technology",
 }
 
 
@@ -16,6 +17,7 @@ class Shipment(models.Model):
     class Carrier(models.TextChoices):
         DHL = "dhl", "DHL"
         FEDEX = "fedex", "FedEx"
+        UPS = "ups", "UPS"
 
     class Purpose(models.TextChoices):
         PROTOTYPE_EXPORT = "prototype_export", "Prototype export"
@@ -76,6 +78,10 @@ class Shipment(models.Model):
     carrier_status = models.CharField(max_length=200, blank=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
 
+    # ---------- Scheduled emails ----------
+    last_update_email_at = models.DateTimeField(null=True, blank=True)
+    delivered_email_sent_at = models.DateTimeField(null=True, blank=True)
+    
     # ---------- Route ----------
     origin = models.CharField(max_length=100, default="Mumbai")
     destination = models.CharField(max_length=100, blank=True)
@@ -196,7 +202,7 @@ class Shipment(models.Model):
 
     @property
     def awb_display(self):
-        """Groups digits in fours: 612988347712 -> 6129 8834 7712"""
+        """Groups characters in fours: 612988347712 -> 6129 8834 7712"""
         return " ".join(self.awb[i:i + 4] for i in range(0, len(self.awb), 4))
 
     @property
@@ -272,6 +278,8 @@ class Shipment(models.Model):
             return f"https://www.fedex.com/fedextrack/?trknbr={self.awb}"
         if self.carrier == self.Carrier.DHL:
             return f"https://www.dhl.com/in-en/home/tracking.html?tracking-id={self.awb}&submit=1"
+        if self.carrier == self.Carrier.UPS:
+            return f"https://www.ups.com/track?loc=en_IN&tracknum={self.awb}"
         return ""
 
     @property
@@ -281,7 +289,7 @@ class Shipment(models.Model):
 
     @property
     def system_events(self):
-        """App-generated entries (registered, customs, status), for the Activity tab."""
+        """App-generated entries (registered, customs, emails, status), for the Activity tab."""
         return [e for e in self.events.all() if e.kind != ShipmentEvent.Kind.CARRIER_SCAN]
 
 
@@ -293,6 +301,7 @@ class ShipmentEvent(models.Model):
         STATUS = "status", "Status change"
         CARRIER_SCAN = "carrier_scan", "Carrier scan"
         CUSTOMS_CLEARED = "customs_cleared", "Customs cleared"
+        EMAIL_SENT = "email_sent", "Email sent"
         NOTE = "note", "Note"
 
     STATUS_STYLES = {
@@ -309,6 +318,7 @@ class ShipmentEvent(models.Model):
         Kind.RECIPIENTS_SAVED: ("i-mail", "gray"),
         Kind.CARRIER_SCAN: ("i-truck", "blue"),
         Kind.CUSTOMS_CLEARED: ("i-shield", "green"),
+        Kind.EMAIL_SENT: ("i-mail", "green"),
         Kind.NOTE: ("i-check", "gray"),
     }
 
@@ -338,3 +348,21 @@ class ShipmentEvent(models.Model):
     @property
     def color(self):
         return self.style[1]
+
+
+class ShipmentRecipient(models.Model):
+    """One email address to notify about a shipment."""
+
+    shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name="recipients")
+    email = models.EmailField()
+    notified_at = models.DateTimeField(null=True, blank=True)   # empty = not emailed yet
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["shipment", "email"], name="unique_shipment_recipient"),
+        ]
+
+    def __str__(self):
+        return f"{self.shipment.shipment_id} → {self.email}"

@@ -1,0 +1,20 @@
+{% autoescape off %}Hello,
+
+Good news: your shipment has been delivered.
+
+Shipment:   {{ shipment.shipment_id }}
+Carrier:    {{ shipment.get_carrier_display }}
+AWB:        {{ shipment.awb_display }}
+Status:     Delivered{% if shipment.carrier_status %} – {{ shipment.carrier_status }}{% endif %}
+{% if shipment.client_reference %}Reference:  {{ shipment.client_reference }}
+{% endif %}{% with scans=shipment.carrier_events %}{% if scans %}{% with last=scans.0 %}Delivered on: {{ last.occurred_at|date:"j F Y, H:i" }}{% if last.description %} ({{ last.description }}){% endif %}
+{% endwith %}{% endif %}{% endwith %}
+Proof of delivery is available on the carrier's website:
+{{ shipment.tracking_url }}
+
+This is the final update for this shipment.
+
+Regards,
+UDT Shipping
+Ultimate Design Technology LLP
+{% endautoescape %}

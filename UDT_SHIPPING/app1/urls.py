@@ -5,7 +5,7 @@ from .views import (
     ShipmentsView, RegisterTrackingView, TrackingPreviewView,
     ShipmentDetailView, ShipmentSyncView, ShipmentDeleteView,
     AddressesView, NotificationsView, SettingsView,
-    ShipmentListCreateAPIView, ShipmentDetailAPIView,
+    ShipmentListCreateAPIView, ShipmentDetailAPIView,ShipmentEmailsAPIView,
 )
 
 
@@ -33,4 +33,5 @@ urlpatterns = [
     # REST API
     path("api/shipments/", ShipmentListCreateAPIView.as_view(), name="api_shipments"),
     path("api/shipments/<int:pk>/", ShipmentDetailAPIView.as_view(), name="api_shipment_detail"),
+    path("api/shipments/<int:pk>/emails/", ShipmentEmailsAPIView.as_view(), name="api_shipment_emails"),
 ]

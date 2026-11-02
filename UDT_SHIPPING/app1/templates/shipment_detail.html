@@ -120,6 +120,29 @@
     .info-table td:first-child { color: var(--muted); width: 40%; }
     .info-table tr:last-child td { border-bottom: none; }
 
+    /* Email recipients */
+    .recipient-table td:first-child { color: var(--text); font-weight: 600; width: auto; word-break: break-all; }
+    .recipient-table td:last-child { text-align: right; white-space: nowrap; padding-left: 16px; }
+
+    .mail-status {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .mail-status.sent    { background: var(--green-bg); color: var(--green); }
+    .mail-status.queued  { background: var(--amber-bg); color: var(--amber); }
+    .mail-status.pending { background: #eef1f5; color: var(--muted); }
+
+    .recipient-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+    .recipient-list li { display: flex; align-items: center; gap: 8px; font-weight: 600; word-break: break-all; }
+    .recipient-list svg.icon { width: 16px; height: 16px; flex-shrink: 0; }
+    .recipient-list .sent    { color: var(--green); }
+    .recipient-list .queued  { color: var(--amber); }
+    .recipient-list .pending { color: var(--muted); }
+
     @media (max-width: 1100px) {
         .detail-layout { grid-template-columns: 1fr; }
         .detail-actions { align-items: flex-start; }
@@ -233,10 +256,31 @@
             <div class="tab-panel" id="panel-notifications">
                 <table class="info-table">
                     <tr><td>Client communication</td><td>{{ shipment.get_communication_display }}</td></tr>
-                    <tr><td>Client recipient</td><td>{{ shipment.recipient_email|default:"—" }}</td></tr>
-                    <tr><td>Internal recipients</td><td>{{ shipment.internal_recipients }}</td></tr>
                     <tr><td>Release rule</td><td>{% if shipment.is_export %}Held until customs clears{% else %}Immediate{% endif %}</td></tr>
+                    <tr><td>Internal recipients</td><td>{{ shipment.internal_recipients }}</td></tr>
                 </table>
+
+                <div class="section-title">Email recipients</div>
+                {% if shipment.recipients.all %}
+                    <table class="info-table recipient-table">
+                        {% for recipient in shipment.recipients.all %}
+                            <tr>
+                                <td>{{ recipient.email }}</td>
+                                <td>
+                                    {% if recipient.notified_at %}
+                                        <span class="mail-status sent">Sent {{ recipient.notified_at|date:"j M · H:i" }}</span>
+                                    {% elif shipment.communication == "held" %}
+                                        <span class="mail-status queued">Waiting for customs clearance</span>
+                                    {% else %}
+                                        <span class="mail-status pending">Not sent yet</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </table>
+                {% else %}
+                    <p class="empty-text">No email recipients for this shipment.</p>
+                {% endif %}
             </div>
 
             <!-- Activity: internal log + record details -->
@@ -291,8 +335,25 @@
                         <div class="info-value">{{ shipment.owner_short }}</div>
                     </div>
                     <div>
-                        <div class="label-caps">Client recipient</div>
-                        <div class="info-value">{{ shipment.recipient_email|default:"—" }}</div>
+                        <div class="label-caps">Email recipients</div>
+                        {% if shipment.recipients.all %}
+                            <ul class="recipient-list">
+                                {% for recipient in shipment.recipients.all %}
+                                    <li>
+                                        {% if recipient.notified_at %}
+                                            <svg class="icon sent" title="Sent"><use href="#i-check"/></svg>
+                                        {% elif shipment.communication == "held" %}
+                                            <svg class="icon queued" title="Waiting for customs"><use href="#i-lock"/></svg>
+                                        {% else %}
+                                            <svg class="icon pending" title="Not sent yet"><use href="#i-mail"/></svg>
+                                        {% endif %}
+                                        {{ recipient.email }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="info-value">—</div>
+                        {% endif %}
                     </div>
                     <div>
                         <div class="label-caps">Internal recipients</div>

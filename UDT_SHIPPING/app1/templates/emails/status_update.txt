@@ -1,0 +1,23 @@
+{% autoescape off %}Hello,
+
+Here is your scheduled update for this shipment.
+
+Shipment:   {{ shipment.shipment_id }}
+Carrier:    {{ shipment.get_carrier_display }}
+AWB:        {{ shipment.awb_display }}
+Status:     {{ shipment.get_status_display }}{% if shipment.carrier_status %} – {{ shipment.carrier_status }}{% endif %}
+{% if shipment.eta %}Estimated delivery: {{ shipment.eta|date:"j F Y" }}
+{% endif %}{% if shipment.client_reference %}Reference:  {{ shipment.client_reference }}
+{% endif %}{% with scans=shipment.carrier_events %}{% if scans %}
+Latest scans:
+{% for scan in scans|slice:":3" %}  • {{ scan.occurred_at|date:"j M, H:i" }} – {{ scan.title }}{% if scan.description %} ({{ scan.description }}){% endif %}
+{% endfor %}{% endif %}{% endwith %}
+Track it live on the carrier's website:
+{{ shipment.tracking_url }}
+
+You will receive the next update in 2 days, until the shipment is delivered.
+
+Regards,
+UDT Shipping
+Ultimate Design Technology LLP
+{% endautoescape %}

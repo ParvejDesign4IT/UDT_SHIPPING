@@ -28,7 +28,7 @@
 
     .form-grid { display: grid; gap: 20px; }
     .grid-carrier { grid-template-columns: 220px 1fr; }
-    .grid-two { grid-template-columns: 1fr 1fr; }
+    .grid-two { grid-template-columns: 1fr 1fr; align-items: start; }
 
     .divider { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
 
@@ -51,6 +51,40 @@
     .field input[readonly] { color: var(--muted); cursor: default; }
 
     .field-error { color: var(--red); font-size: 14px; font-weight: 600; margin-top: 6px; }
+    .field-hint { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+    /* Extra email fields */
+    .extra-emails { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .extra-emails:empty { margin-top: 0; }
+
+    .extra-email-row { display: flex; gap: 8px; align-items: center; }
+
+    .remove-email {
+        flex-shrink: 0;
+        width: 40px; height: 44px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--muted);
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .remove-email:hover { color: var(--red); border-color: #f5c2c2; background: var(--red-bg); }
+
+    .add-email-btn {
+        margin-top: 10px;
+        background: none;
+        border: none;
+        padding: 4px 0;
+        color: var(--primary);
+        font: inherit; font-size: 15px; font-weight: 700;
+        cursor: pointer;
+    }
+
+    .add-email-btn:hover { text-decoration: underline; }
+    .add-email-btn[hidden] { display: none; }
 
     /* Live carrier status */
     .live-preview {
@@ -99,7 +133,7 @@
 
     <div class="eyebrow">Vendor shipment</div>
     <h1 class="page-title">Register existing tracking</h1>
-    <p class="page-desc">Add a DHL or FedEx AWB supplied by a vendor. Indian export rules still hold client communication.</p>
+    <p class="page-desc">Add a carrier AWB supplied by a vendor. Indian export rules still hold client communication.</p>
 
     <form method="POST" class="form-card" novalidate>
         {% csrf_token %}
@@ -156,10 +190,24 @@
             </div>
 
             <div class="field">
-                <label for="recipient">Pending client recipient</label>
+                <label for="recipient">Client email</label>
                 <input type="email" id="recipient" name="recipient_email"
                        value="{{ form_data.recipient_email|default:'' }}" placeholder="client@example.com">
                 {% if errors.recipient_email %}<div class="field-error">{{ errors.recipient_email.0 }}</div>{% endif %}
+
+                <!-- Extra email fields (added with the button below) -->
+                <div class="extra-emails" id="extraEmails">
+                    {% for email in extra_emails %}
+                        <div class="extra-email-row">
+                            <input type="email" name="extra_emails" value="{{ email }}" placeholder="another@example.com">
+                            <button type="button" class="remove-email" title="Remove">×</button>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if errors.extra_emails %}<div class="field-error">{{ errors.extra_emails.0 }}</div>{% endif %}
+
+                <button type="button" class="add-email-btn" id="addEmailBtn">+ Add another email</button>
+                <div class="field-hint">Each address receives its own tracking email.</div>
             </div>
         </div>
 
@@ -167,9 +215,7 @@
             <svg class="icon"><use href="#i-lock" id="noticeIcon"/></svg>
             <div>
                 <div class="notice-title" id="noticeTitle">Client tracking will be held</div>
-                <div class="notice-text" id="noticeText">
-                    The AWB is monitored internally now. No client email or link is released before clearance.
-                </div>
+                <div class="notice-text" id="noticeText"></div>
             </div>
         </div>
 
@@ -195,6 +241,49 @@
         window.location.href = shipmentsUrl;
     });
 
+    // ---------- Extra email fields ----------
+    const extraEmails = document.getElementById("extraEmails");
+    const addEmailBtn = document.getElementById("addEmailBtn");
+    const MAX_EXTRA_EMAILS = {{ max_extra_emails }};
+
+    function updateAddButton() {
+        addEmailBtn.hidden = extraEmails.children.length >= MAX_EXTRA_EMAILS;
+    }
+
+    function addEmailRow() {
+        if (extraEmails.children.length >= MAX_EXTRA_EMAILS) return;
+
+        const row = document.createElement("div");
+        row.className = "extra-email-row";
+
+        const input = document.createElement("input");
+        input.type = "email";
+        input.name = "extra_emails";
+        input.placeholder = "another@example.com";
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove-email";
+        remove.title = "Remove";
+        remove.textContent = "×";
+
+        row.append(input, remove);
+        extraEmails.appendChild(row);
+        input.focus();
+        updateAddButton();
+    }
+
+    addEmailBtn.addEventListener("click", addEmailRow);
+
+    extraEmails.addEventListener("click", (event) => {
+        const removeBtn = event.target.closest(".remove-email");
+        if (!removeBtn) return;
+        removeBtn.parentElement.remove();
+        updateAddButton();
+    });
+
+    updateAddButton();
+
     // ---------- Customs notice follows the purpose ----------
     const purpose = document.getElementById("purpose");
     const notice = document.getElementById("trackingNotice");
@@ -209,12 +298,12 @@
             notice.className = "notice held";
             noticeIcon.setAttribute("href", "#i-lock");
             noticeTitle.textContent = "Client tracking will be held";
-            noticeText.textContent = "The AWB is monitored internally now. No client email or link is released before clearance.";
+            noticeText.textContent = "The AWB is monitored internally now. Emails to the recipients are sent automatically once customs clears.";
         } else {
             notice.className = "notice released";
             noticeIcon.setAttribute("href", "#i-check");
             noticeTitle.textContent = "Client tracking can be shared";
-            noticeText.textContent = "No export clearance applies. The client recipient will get tracking updates right away.";
+            noticeText.textContent = "No export clearance applies. Every recipient gets a tracking email as soon as you save.";
         }
     }
 

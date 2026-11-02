@@ -128,3 +128,19 @@ DHL_TRACKING_URL = 'https://api-eu.dhl.com/track/shipments'
 FEDEX_CLIENT_ID = os.environ.get('FEDEX_CLIENT_ID', '')
 FEDEX_CLIENT_SECRET = os.environ.get('FEDEX_CLIENT_SECRET', '')
 FEDEX_BASE_URL = os.environ.get('FEDEX_BASE_URL', 'https://apis-sandbox.fedex.com')
+
+
+
+# ---------------------------------------------------------------- Email
+# Values come from .env. Without them, emails are printed in the terminal (safe for testing).
+
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False') == 'True'
+EMAIL_TIMEOUT = 20  # seconds, so a slow mail server can't freeze the page
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'UDT Shipping <noreply@ultimatedesign.in>')
+

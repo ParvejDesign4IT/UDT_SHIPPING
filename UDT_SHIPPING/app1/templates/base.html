@@ -419,6 +419,7 @@
         .modal p { color: var(--muted); line-height: 1.6; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
 
+        .alert-info    { background: var(--blue-bg);  border-color: #c7d6ff; color: var(--blue); }
         /* ---------- Responsive ---------- */
         @media (max-width: 1200px) {
             .stats { grid-template-columns: repeat(2, 1fr); }
@@ -543,12 +544,8 @@
                 {% block topbar_actions %}
                     <button type="button" id="registerTrackingBtn" class="btn btn-outline">
                         <svg class="icon"><use href="#i-link"/></svg>
-                        Register tracking
-                    </button>
-                    <a href="#" class="btn btn-primary">
-                        <svg class="icon"><use href="#i-plus"/></svg>
                         New shipment
-                    </a>
+                    </button>
                 {% endblock %}
             </div>
         </header>
