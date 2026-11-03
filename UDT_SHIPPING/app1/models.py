@@ -40,6 +40,10 @@ class Shipment(models.Model):
 
     EXPORT_PURPOSES = {Purpose.PROTOTYPE_EXPORT, Purpose.BULK_EXPORT}
 
+    # Tracked only by website link (no API) – customs clearance can't be detected,
+    # so client communication is never held for these
+    LINK_ONLY_CARRIERS = {Carrier.UPS}
+    
     STATUS_DESCRIPTIONS = {
         Status.ACTION_REQUIRED: "An issue needs attention from the shipment owner.",
         Status.CUSTOMS_PENDING: "Client email remains held. No qualifying clearance event yet.",
@@ -133,7 +137,11 @@ class Shipment(models.Model):
 
     def apply_initial_state(self):
         """Indian export rules: hold client communication until customs clears."""
-        if self.purpose in self.EXPORT_PURPOSES:
+        if self.carrier in self.LINK_ONLY_CARRIERS:
+            # No carrier scans to detect clearance → email the tracking link straight away
+            self.status = self.Status.IN_TRANSIT
+            self.communication = self.Communication.RELEASED
+        elif self.purpose in self.EXPORT_PURPOSES:
             self.status = self.Status.CUSTOMS_PENDING
             self.communication = self.Communication.HELD
         elif self.purpose == self.Purpose.QC_RETURN:

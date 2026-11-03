@@ -29,6 +29,8 @@ from rest_framework.views import APIView
 
 from .models import Shipment, ShipmentEvent, ShipmentRecipient
 from .notifications import notify_recipients, send_delivered_email, send_status_update
+from .tracking import TrackingError, has_live_tracking, sync_shipment, track
+
 
 ATTENTION_STATUSES = [
     Shipment.Status.ACTION_REQUIRED,
@@ -262,16 +264,23 @@ class RegisterTrackingView(LoginRequiredMixin, View):
             ShipmentRecipient.objects.get_or_create(shipment=shipment, email=email)
 
         # Live carrier status
-        try:
-            sync_shipment(shipment)
+        # Live carrier status (skipped for link-only carriers such as UPS without API keys)
+        if has_live_tracking(shipment.carrier):
+            try:
+                sync_shipment(shipment)
+                messages.success(
+                    request,
+                    f"{shipment.shipment_id} registered. Carrier status: {shipment.carrier_status}",
+                )
+            except TrackingError as exc:
+                messages.warning(
+                    request,
+                    f"{shipment.shipment_id} registered, but live status could not be fetched: {exc}",
+                )
+        else:
             messages.success(
                 request,
-                f"{shipment.shipment_id} registered. Carrier status: {shipment.carrier_status}",
-            )
-        except TrackingError as exc:
-            messages.warning(
-                request,
-                f"{shipment.shipment_id} registered, but live status could not be fetched: {exc}",
+                f"{shipment.shipment_id} registered. Use “Track on {shipment.get_carrier_display()} ↗” to see its live status.",
             )
 
         # Notification emails
@@ -293,8 +302,11 @@ class TrackingPreviewView(LoginRequiredMixin, View):
         carrier = request.GET.get("carrier", "")
         awb = request.GET.get("awb", "").replace(" ", "")
 
-        if len(awb) < 10:
-            return JsonResponse({"ok": False, "error": "Enter the full tracking number."}, status=400)
+        if not has_live_tracking(carrier):
+            return JsonResponse({
+                "ok": False,
+                "error": "Live preview isn't available for this carrier. The tracking link is saved with the shipment.",
+            })
 
         try:
             result = track(carrier, awb)
@@ -319,7 +331,10 @@ class ShipmentSyncView(LoginRequiredMixin, View):
 
     def post(self, request, shipment_id):
         shipment = get_object_or_404(Shipment, shipment_id=shipment_id)
-
+        if not has_live_tracking(shipment.carrier):
+            messages.info(request, f"Live status for {shipment.get_carrier_display()} is on the carrier's website.")
+            return redirect(shipment.tracking_url or shipment)
+        
         try:
             sync_shipment(shipment)
             messages.success(request, f"Status refreshed: {shipment.carrier_status}")

@@ -285,6 +285,13 @@ TRACKERS = {
     Shipment.Carrier.FEDEX: track_fedex,
 }
 
+# Carriers tracked only through their website link (no API, no keys)
+LINK_ONLY_CARRIERS = {Shipment.Carrier.UPS}
+
+
+def has_live_tracking(carrier):
+    """Link-only carriers (UPS) have no API lookups, just the tracking link."""
+    return carrier not in Shipment.LINK_ONLY_CARRIERS
 
 def track(carrier, awb):
     """Look up live status without saving anything."""

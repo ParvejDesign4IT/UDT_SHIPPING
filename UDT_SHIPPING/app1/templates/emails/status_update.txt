@@ -5,8 +5,9 @@ Here is your scheduled update for this shipment.
 Shipment:   {{ shipment.shipment_id }}
 Carrier:    {{ shipment.get_carrier_display }}
 AWB:        {{ shipment.awb_display }}
-Status:     {{ shipment.get_status_display }}{% if shipment.carrier_status %} – {{ shipment.carrier_status }}{% endif %}
-{% if shipment.eta %}Estimated delivery: {{ shipment.eta|date:"j F Y" }}
+{% if shipment.carrier_status %}Status:     {{ shipment.get_status_display }} – {{ shipment.carrier_status }}
+{% else %}Status:     Live status is available on the {{ shipment.get_carrier_display }} website (link below)
+{% endif %}{% if shipment.eta %}Estimated delivery: {{ shipment.eta|date:"j F Y" }}
 {% endif %}{% if shipment.client_reference %}Reference:  {{ shipment.client_reference }}
 {% endif %}{% with scans=shipment.carrier_events %}{% if scans %}
 Latest scans:
